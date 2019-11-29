@@ -7,6 +7,7 @@ CREATE TABLE public."ShowTorrents"
     magnet_url  text,
 	hash		text,
     name        text,
+    title       text,
 	quality		character varying(20),
 	seeds		integer,
 	peers		integer,

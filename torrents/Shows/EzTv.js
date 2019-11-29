@@ -56,15 +56,20 @@ class EzTv {
 
     /**
      *
-     * @param {Number} limit - Number between 1 and 100
      * @param {Number} page - Requested page number starting from 1
+     * @param {Number} limit - Number between 1 and 100 default is 100
      */
-    async getTorrents(limit, page) {
+    async getTorrents(page, limit) {
+        if (!limit) {
+            limit = 100;
+        }
         let url = URL + `get-torrents?limit=${limit}&page=${page}`;
         let resp = await rp(url);
         if (typeof resp === "string") {
             resp = JSON.parse(resp);
         }
+        // console.log(resp);
+        return resp;
     }
 
     /**
@@ -81,6 +86,52 @@ class EzTv {
             resp = JSON.parse(resp);
         }
     }
+
+    /**
+     * 
+     * @param {[]} torrents 
+     * @returns sorted array of ids
+     */
+    getIdsFromTorrents(torrents) {
+        let ids = [];
+        //geting the ids from the shows
+        torrents.map((val, i, arr) => {
+            ids.push(val.imdb_id);
+        });
+        //sorting the ids
+        ids.sort();
+        //removing id 0
+        for (let i = 0; i < ids.length; i++) {
+            if (ids[i] == 0) {
+                ids.splice(i, 1);
+                i--;
+            } else {
+                break;
+            }
+        }
+
+        //removing same ids
+        for (let i = 0; i < ids.length; i++){
+            for (let j = i + 1; j < ids.length; j++){
+                if (ids[j] == ids[i]) {
+                    ids.splice(j, 1);
+                    j--;
+                } else {
+                    break;
+                }
+            }
+        }
+        return ids;
+    }
 }
 
 module.exports = EzTv;
+
+async function hpo() {
+    let a = new EzTv();
+    let resp = await a.getTorrents();
+    let ids = a.getIdsFromTorrents(resp.torrents);
+    console.log(ids);
+}
+
+hpo();
