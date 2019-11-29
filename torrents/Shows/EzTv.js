@@ -5,6 +5,12 @@ const urlRoot = "https://eztv.io/";
 const URL = urlRoot + "api/";
 
 class EzTv {
+
+
+    constructor(params) {
+        this.client = params.client;
+    }
+
     async getAllShows() {
         try {
             const results = await rp(`${urlRoot}/showlist`);
@@ -123,15 +129,35 @@ class EzTv {
         }
         return ids;
     }
+
+
+
+    /**
+     * 
+     * @param {[]} ids 
+     * @returns array of non existant ids
+     */
+    async checkIfIdsExist(ids) {
+        let notExist = [];
+        for (const id of ids) {
+            let query = `select exists(select 1 from public."Shows" where imdb_id=${id})`
+            let res = await this.client.query(query);
+            res = res.rows[0].exists;
+            if (!res) {
+                notExist.push(id);
+            }
+        }
+        return notExist;
+    }
+
+
 }
 
 module.exports = EzTv;
 
 async function hpo() {
-    let a = new EzTv();
-    let resp = await a.getTorrents();
-    let ids = a.getIdsFromTorrents(resp.torrents);
-    console.log(ids);
+    
+    
 }
 
 hpo();

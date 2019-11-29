@@ -6,23 +6,21 @@ const mongoose = require("mongoose");
 const YTS = require("./torrents/Movies/Yts");
 const EzTv = require("./torrents/Shows/EzTv");
 const yts = new YTS();
-const ezTv = new EzTv();
+var ezTv;
 const { Client } = require("pg");
-// const client = new Client({
-//     host: "localhost",
-//     user: "postgres",
-//     password: "god",
-//     database: "Shovie"
-// });
-
-
 const client = new Client({
-    host: "192.168.1.101",
-    user: "gandalf",
+    host: "localhost",
+    user: "postgres",
     password: "god",
-    database: "shovie"
+    database: "Shovie"
 });
 
+// const client = new Client({
+//     host: "192.168.1.101",
+//     user: "gandalf",
+//     password: "god",
+//     database: "shovie"
+// });
 
 async function setup() {
     await client.connect();
@@ -89,8 +87,6 @@ async function pushMoviePages(page) {
     };
 }
 
-
-
 async function pushAllMovies(sync) {
     let start = 1;
     let finish;
@@ -109,7 +105,9 @@ async function pushAllMovies(sync) {
     for (let i = start; i <= finish; i++) {
         let response = await pushMoviePages(i);
         totalInsertion += response.insertedMovieCount;
-        let str = `Page:${i} Pages Left:${finish - i} Inserted:${response.insertedMovieCount} Total Inserted:${totalInsertion}`;
+        let str = `Page:${i} Pages Left:${finish - i} Inserted:${
+            response.insertedMovieCount
+        } Total Inserted:${totalInsertion}`;
         console.log(str);
         // console.log("Page:" + i + " Pages Left:" + (finish - i) + "Inserted:" + response.insertedMovieCount + " Total Inserted:" + totalInsertion);
         if (sync && response.insertedMovieCount < 40) {
@@ -118,28 +116,42 @@ async function pushAllMovies(sync) {
     }
 }
 
-
 async function syncMovies() {
     await pushAllMovies(true);
 }
 
+async function ezz() {
+    let resp = await ezTv.getTorrents();
+    let ids = ezTv.getIdsFromTorrents(resp.torrents);
+    let ga = await ezTv.checkIfIdsExist(ids);
+    console.log(ga);
+}
+
 async function run() {
     await setup();
-    await syncMovies().catch(error => {
-        console.log(error);
-    });
+    // await syncMovies().catch(error => {
+    //     console.log(error);
+    // });
+
+    ezTv = new EzTv({ client: client });
+    await ezz();
 
     // await pushMoviePages(1).catch(error => {
     //     console.log(error);
     // });
     await client.end();
 }
-// run();
+run();
 
-async function haja(){
+async function haja() {
     let ha = await ezTv.getAllShows();
     ha.forEach(element => {
-        console.log(JSON.stringify(element));  
+        console.log(JSON.stringify(element));
     });
     console.log(ha.length);
 }
+
+//
+//--------------------TV   STUFFF------------------------//
+//
+
