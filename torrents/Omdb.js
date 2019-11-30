@@ -73,6 +73,7 @@ class Omdb {
         return resp;
     }
 }
+module.exports = Omdb;
 
-let a = new Omdb();
-a.getByIdOrTitle({ imdbId: "tt4052886", type: "series" });
+// let a = new Omdb();
+// a.getByIdOrTitle({ imdbId: "tt4052886", type: "series" });

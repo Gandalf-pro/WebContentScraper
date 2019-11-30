@@ -6,7 +6,8 @@ const mongoose = require("mongoose");
 const YTS = require("./torrents/Movies/Yts");
 const EzTv = require("./torrents/Shows/EzTv");
 const yts = new YTS();
-var ezTv;
+const Omdb = require("./torrents/Omdb");
+const omdb = new Omdb();
 const { Client } = require("pg");
 const client = new Client({
     host: "localhost",
@@ -21,6 +22,9 @@ const client = new Client({
 //     password: "god",
 //     database: "shovie"
 // });
+
+
+var ezTv = new EzTv({"client":client});
 
 async function setup() {
     await client.connect();
@@ -123,8 +127,17 @@ async function syncMovies() {
 async function ezz() {
     let resp = await ezTv.getTorrents();
     let ids = ezTv.getIdsFromTorrents(resp.torrents);
-    let ga = await ezTv.checkIfIdsExist(ids);
-    console.log(ga);
+    let neids = await ezTv.checkIfIdsExist(ids);
+    for (const id of neids) {
+        let realId = `tt${id}`;
+        //search on omdb
+        let res = await omdb.getByIdOrTitle({ imdbId:realId, type:"series" });
+        //push to database
+        let ga = await pushShowToDatabase(res);
+        console.log(ga);
+        break;
+    }
+    
 }
 
 async function run() {
@@ -133,7 +146,6 @@ async function run() {
     //     console.log(error);
     // });
 
-    ezTv = new EzTv({ client: client });
     await ezz();
 
     // await pushMoviePages(1).catch(error => {
@@ -155,3 +167,26 @@ async function haja() {
 //--------------------TV   STUFFF------------------------//
 //
 
+
+async function pushShowToDatabase(show) {
+    "".slice()
+    let id = show.imdbID.slice(2);
+    let Year = show.Year;
+    if (Year.endsWith("–")) {
+        Year = Year.slice(0, Year.length - 1);
+    }
+    let year = Year;
+    // console.log(`id:${id}    year:${year}`);
+    let query = "INSERT INTO public.\"Shows\"(";
+    query += "imdb_id, imdb_rating, title, posters, latest_season, release_year)";
+    query += `VALUES (${id}, ${show.imdbRating}, '${show.Title}', '{"${show.Poster}"}', ${show.totalSeasons}, ${year})`;
+    query += "ON CONFLICT DO NOTHING;"
+    let res = await client.query(query);
+    return res;
+}
+
+
+
+async function syncShows() {
+    
+}
