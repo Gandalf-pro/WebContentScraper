@@ -131,10 +131,10 @@ async function ezz() {
     for (const id of neids) {
         let realId = `tt${id}`;
         //search on omdb
-        let res = await omdb.getByIdOrTitle({ imdbId:realId, type:"series" });
+        let res = await omdb.getByIdOrTitle({ imdbId:realId, type:"series" ,season:1});
         //push to database
-        let ga = await pushShowToDatabase(res);
-        console.log(ga);
+        // let ga = await pushShowToDatabase(res);
+        console.log(res);
         break;
     }
     

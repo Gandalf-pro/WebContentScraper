@@ -44,7 +44,6 @@ class Omdb {
         if (typeof resp === "string") {
             resp = JSON.parse(resp);
         }
-        console.log(resp);
         return resp;
     }
 
