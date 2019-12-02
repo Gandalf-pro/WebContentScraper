@@ -46,7 +46,7 @@ CREATE TABLE public."Episodes"(
     summary         TEXT,
     rating          FLOAT,
     season          INTEGER,
-    date_released_unix BIGINT,
+    date_released   DATE,
     name            TEXT,
     
     CONSTRAINT "Episodes_pkey" PRIMARY KEY (imdb_id,episode)
@@ -57,7 +57,6 @@ CREATE TABLE public."Seasons"(
     imdb_id         INTEGER,
     season          INTEGER,
     episode_count   INTEGER,
-    latest_episode  INTEGER,
     torrents        INTEGER[],
     episodes        INTEGER,
 

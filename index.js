@@ -23,8 +23,7 @@ const client = new Client({
 //     database: "shovie"
 // });
 
-
-var ezTv = new EzTv({"client":client});
+var ezTv = new EzTv({ client: client });
 
 async function setup() {
     await client.connect();
@@ -124,22 +123,6 @@ async function syncMovies() {
     await pushAllMovies(true);
 }
 
-async function ezz() {
-    let resp = await ezTv.getTorrents();
-    let ids = ezTv.getIdsFromTorrents(resp.torrents);
-    let neids = await ezTv.checkIfIdsExist(ids);
-    for (const id of neids) {
-        let realId = `tt${id}`;
-        //search on omdb
-        let res = await omdb.getByIdOrTitle({ imdbId:realId, type:"series" ,season:1});
-        //push to database
-        // let ga = await pushShowToDatabase(res);
-        console.log(res);
-        break;
-    }
-    
-}
-
 async function run() {
     await setup();
     // await syncMovies().catch(error => {
@@ -147,6 +130,7 @@ async function run() {
     // });
 
     await ezz();
+    
 
     // await pushMoviePages(1).catch(error => {
     //     console.log(error);
@@ -167,9 +151,76 @@ async function haja() {
 //--------------------TV   STUFFF------------------------//
 //
 
+//yyyy-mm-dd
+function convertTime(time) {
+    let Dates = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec"
+    ];
+    let pieces = time.split(" ");
+    //year
+    let year = pieces[2];
+    //month
+    let month =
+        Dates.findIndex((val, i, obj) => {
+            if (val == pieces[1]) {
+                return true;
+            } else {
+                return false;
+            }
+        }) + 1;
+    //day
+    let day = pieces[0];
+    let actual = `${year}-${month}-${day}`;
+    return actual;
+}
+
+async function ezz() {
+    let resp = await ezTv.getTorrents();
+    let ids = ezTv.getIdsFromTorrents(resp.torrents);
+    let neids = await ezTv.checkIfIdsExist(ids);
+    for (const id of neids) {
+        let realId = `tt${id}`;
+        realId = "tt4052886";
+        console.log(realId);
+        //search on omdb
+        let show = await omdb.getByIdOrTitle({
+            imdbId: realId,
+            type: "series",
+            season: 1,
+            episode: 1
+        });
+        console.log(show);
+        break;
+        //push to database
+        // let ga = await pushShowToDatabase(show);
+
+        //request every season
+        let sesCount = show.totalSeasons;
+        for (let i = 0; i < sesCount; i++) {
+            let season = await omdb.getByIdOrTitle({
+                imdbId: realId,
+                type: "series",
+                season: i
+            });
+            //push season to database
+            pushSeasonToDatabase(season, show, i);
+        }
+    }
+}
 
 async function pushShowToDatabase(show) {
-    "".slice()
+    "".slice();
     let id = show.imdbID.slice(2);
     let Year = show.Year;
     if (Year.endsWith("–")) {
@@ -177,16 +228,41 @@ async function pushShowToDatabase(show) {
     }
     let year = Year;
     // console.log(`id:${id}    year:${year}`);
-    let query = "INSERT INTO public.\"Shows\"(";
-    query += "imdb_id, imdb_rating, title, posters, latest_season, release_year)";
-    query += `VALUES (${id}, ${show.imdbRating}, '${show.Title}', '{"${show.Poster}"}', ${show.totalSeasons}, ${year})`;
-    query += "ON CONFLICT DO NOTHING;"
+    let query = 'INSERT INTO public."Shows"(';
+    query +=
+        "imdb_id, imdb_rating, title, posters, latest_season, release_year, plot)";
+    query += `VALUES (${id}, ${show.imdbRating}, '${show.Title}', '{"${show.Poster}"}', ${show.totalSeasons}, ${year}, '${show.Plot}')`;
+    query += "ON CONFLICT DO NOTHING;";
     let res = await client.query(query);
     return res;
 }
 
-
-
-async function syncShows() {
-    
+async function pushSeasonToDatabase(season, show, seasonNum) {
+    let id = show.imdbID.slice(2);
+    let query = 'INSERT INTO public."Seasons"(';
+    query += "imdb_id, season";
+    if (season.Response == "True") {
+        query += ", episode_count)";
+        query += `VALUES (${id}, ${seasonNum},${season.Episodes.length})`;
+    } else {
+        query += `)VALUES (${id}, ${seasonNum})`;
+    }
+    query += "ON CONFLICT DO NOTHING;";
+    let res = await client.query(query);
+    return res;
 }
+
+async function pushEpisodeToDatabase(episode, season, show) {
+    let id = episode.seriesID.slice(2);
+    let episodeId = episode.imdbID.slice(2);
+    let date = convertTime(episode.Released);
+    let query = 'INSERT INTO public."Episodes"(';
+    query +=
+        "imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name)";
+    query += `VALUES ${id}, ${episode.Episode}, ${episodeId}, '${episode.Plot}', ${episode.imdbRating}, ${episode.Season}, ${date}, '${episode.Title}')`;
+    query += "ON CONFLICT DO NOTHING;";
+    let res = await client.query(query);
+    return res;
+}
+
+async function syncShows() {}

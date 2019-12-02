@@ -54,7 +54,7 @@ CREATE OR REPLACE FUNCTION add_episode_to_seasons()
   AS
   $BODY$
   BEGIN
-      UPDATE public."Seasons" SET latest_episode = NEW.episode WHERE NEW.episode > latest_season AND NEW.imdb_id = imdb_id;
+      UPDATE public."Seasons" SET episode_count = NEW.episode WHERE NEW.episode > episode_count AND NEW.imdb_id = imdb_id;
 
     RETURN NEW;
   END;
