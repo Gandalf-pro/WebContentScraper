@@ -54,7 +54,7 @@ CREATE TABLE public."Episodes"(
     name            TEXT,
     posters         text[],
     
-    CONSTRAINT "Episodes_pkey" PRIMARY KEY (imdb_id,episode)
+    CONSTRAINT "Episodes_pkey" PRIMARY KEY (imdb_id,episode,season)
 
 );
 
