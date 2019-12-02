@@ -1,3 +1,5 @@
+
+DROP TABLE IF EXISTS public."ShowTorrents";
 CREATE TABLE public."ShowTorrents"
 (
     id          SERIAL PRIMARY KEY NOT NULL,
@@ -20,6 +22,7 @@ CREATE TABLE public."ShowTorrents"
 
 );
 
+DROP TABLE IF EXISTS public."FullSeasonTorrents";
 CREATE TABLE public."FullSeasonTorrents"
 (
     id          SERIAL PRIMARY KEY NOT NULL,
@@ -38,21 +41,24 @@ CREATE TABLE public."FullSeasonTorrents"
     season      INTEGER
 );
 
+DROP TABLE IF EXISTS public."Episodes";
 CREATE TABLE public."Episodes"(
     imdb_id         INTEGER,
     episode         INTEGER,
-    episode_imdb_id    INTEGER,
+    episode_imdb_id INTEGER,
     torrents        INT[],
     summary         TEXT,
     rating          FLOAT,
     season          INTEGER,
     date_released   DATE,
     name            TEXT,
+    posters         text[],
     
     CONSTRAINT "Episodes_pkey" PRIMARY KEY (imdb_id,episode)
 
 );
 
+DROP TABLE IF EXISTS public."Seasons";
 CREATE TABLE public."Seasons"(
     imdb_id         INTEGER,
     season          INTEGER,
@@ -64,7 +70,7 @@ CREATE TABLE public."Seasons"(
 
 );
 
-
+DROP TABLE IF EXISTS public."Shows";
 CREATE TABLE public."Shows"(
     imdb_id             integer,
     imdb_rating         FLOAT,

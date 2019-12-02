@@ -201,6 +201,8 @@ async function ezz() {
             episode: 1
         });
         console.log(show);
+        let u = await pushEpisodeToDatabase(show);
+        console.log(u);
         break;
         //push to database
         // let ga = await pushShowToDatabase(show);
@@ -253,13 +255,17 @@ async function pushSeasonToDatabase(season, show, seasonNum) {
 }
 
 async function pushEpisodeToDatabase(episode, season, show) {
+    if (episode.Response == 'False') {
+        throw "No response";
+    }
     let id = episode.seriesID.slice(2);
     let episodeId = episode.imdbID.slice(2);
     let date = convertTime(episode.Released);
+    console.log(date);
     let query = 'INSERT INTO public."Episodes"(';
     query +=
-        "imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name)";
-    query += `VALUES ${id}, ${episode.Episode}, ${episodeId}, '${episode.Plot}', ${episode.imdbRating}, ${episode.Season}, ${date}, '${episode.Title}')`;
+        "imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)";
+    query += `VALUES (${id}, ${episode.Episode}, ${episodeId}, '${episode.Plot}', ${episode.imdbRating}, ${episode.Season}, '${date}', '${episode.Title}', '{"${episode.Poster}"}')`;
     query += "ON CONFLICT DO NOTHING;";
     let res = await client.query(query);
     return res;
