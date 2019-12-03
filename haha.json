@@ -1,0 +1,89 @@
+{
+    "@context": "http://schema.org",
+    "@type": "TVSeries",
+    "url": "/title/tt0108778/",
+    "name": "Friends",
+    "image": "https://m.media-amazon.com/images/M/MV5BNDVkYjU0MzctMWRmZi00NTkxLTgwZWEtOWVhYjZlYjllYmU4XkEyXkFqcGdeQXVyNTA4NzY1MzY@._V1_.jpg",
+    "genre": [
+        "Comedy",
+        "Romance"
+    ],
+    "contentRating": "TV-14",
+    "actor": [{
+            "@type": "Person",
+            "url": "/name/nm0000098/",
+            "name": "Jennifer Aniston"
+        },
+        {
+            "@type": "Person",
+            "url": "/name/nm0001073/",
+            "name": "Courteney Cox"
+        },
+        {
+            "@type": "Person",
+            "url": "/name/nm0001435/",
+            "name": "Lisa Kudrow"
+        },
+        {
+            "@type": "Person",
+            "url": "/name/nm0001455/",
+            "name": "Matt LeBlanc"
+        }
+    ],
+    "creator": [{
+            "@type": "Person",
+            "url": "/name/nm0186331/",
+            "name": "David Crane"
+        },
+        {
+            "@type": "Person",
+            "url": "/name/nm0442035/",
+            "name": "Marta Kauffman"
+        },
+        {
+            "@type": "Organization",
+            "url": "/company/co0074685/"
+        },
+        {
+            "@type": "Organization",
+            "url": "/company/co0005035/"
+        }
+    ],
+    "description": "Friends is a TV series starring Jennifer Aniston, Courteney Cox, and Lisa Kudrow. Follows the personal and professional lives of six twenty to thirty-something-year-old friends living in Manhattan.",
+    "datePublished": "1994-09-22",
+    "keywords": "friendship,friend,new york city,roommate,divorce",
+    "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingCount": 718896,
+        "bestRating": "10.0",
+        "worstRating": "1.0",
+        "ratingValue": "8.9"
+    },
+    "review": {
+        "@type": "Review",
+        "itemReviewed": {
+            "@type": "CreativeWork",
+            "url": "/title/tt0108778/"
+        },
+        "author": {
+            "@type": "Person",
+            "name": "rossrobinson"
+        },
+        "dateCreated": "2003-11-12",
+        "inLanguage": "English",
+        "name": "fantastic",
+        "reviewBody": "Friends has got to be one of the best Us Sitcom comedys ever. I\u0027ll be sad for this programme to end next year in 2004 because the whole team did such a fantastic effort to put everthing into this series. It was such a great programme and i think it will always will be. After 10 seasons the programme comes to it\u0027s end. I give this 10 out of 10."
+    },
+    "trailer": {
+        "@type": "VideoObject",
+        "name": "Friends: The Complete Series",
+        "embedUrl": "/video/imdb/vi4240746009",
+        "thumbnail": {
+            "@type": "ImageObject",
+            "contentUrl": "https://m.media-amazon.com/images/M/MV5BOGRiNTMyNDEtNzBlNS00OWQxLWEwNmQtYzQyZjk0ODcyODJkXkEyXkFqcGdeQXVyNzU1NzE3NTg@._V1_.jpg"
+        },
+        "thumbnailUrl": "https://m.media-amazon.com/images/M/MV5BOGRiNTMyNDEtNzBlNS00OWQxLWEwNmQtYzQyZjk0ODcyODJkXkEyXkFqcGdeQXVyNzU1NzE3NTg@._V1_.jpg",
+        "description": "Trailer 2 for Friends: The Complete Series",
+        "uploadDate": "2013-04-18T04:13:07Z"
+    }
+}
