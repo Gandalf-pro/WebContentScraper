@@ -4,6 +4,7 @@ const cheerio = require("cheerio");
 class Imdb {
     constructor(params) {
         this.URL = "https://www.imdb.com/title/";
+        this.client = params.client;
     }
 
     //yyyy-mm-dd
@@ -43,6 +44,21 @@ class Imdb {
     }
 
     /**
+     * 
+     * @param {*} input -its a ordered json
+     */
+    turnToArray(input) {
+        let ret = [];
+        for (const key in input) {
+            if (input.hasOwnProperty(key)) {
+                const element = input[key];
+                ret.push(element);
+            }
+        }
+        return ret;
+    }
+
+    /**
      *
      * @param {String} imdbId
      * returns return object
@@ -55,14 +71,14 @@ class Imdb {
         info = JSON.parse(info);
 
         let seasonCount = page('div[class="seasons-and-year-nav"] a').html();
-
+        let releaseYear = info.datePublished.split("-")[0];
         const ret = {
             imdbId: imdbId,
             imdbRating: info.aggregateRating.ratingValue,
             title: info.name,
-            posters: info.image,
+            posters: `{"${info.image}"}`,
             latestSeason: seasonCount,
-            releaseYear: info.datePublished,
+            releaseYear: releaseYear,
             trailer: info.trailer,
             plot: info.description
         };
@@ -90,9 +106,9 @@ class Imdb {
     }
 
     /**
-     * 
-     * @param {String} imdbId 
-     * @param {Number} season 
+     *
+     * @param {String} imdbId
+     * @param {Number} season
      * returns every episode on a season
      */
     async getAllEpisodesBySeason(imdbId, season) {
@@ -103,7 +119,6 @@ class Imdb {
             .children()
             .toArray();
         let returnArray = [];
-
 
         for (const weird of episodes) {
             let episode = cheerio.load(cheerio.html(weird));
@@ -117,14 +132,16 @@ class Imdb {
                 episodeImdbId: episode(
                     'div[class="hover-over-image zero-z-index "]'
                 ).attr("data-const"),
-                summary: episode('div[itemprop="description"]').text().trim(),
+                summary: episode('div[itemprop="description"]')
+                    .text()
+                    .trim(),
                 rating: episode(
                     'div[class="ipl-rating-widget"] span[class="ipl-rating-star__rating"]'
                 ).html(),
                 season: season,
                 dateReleased: date,
                 name: episode('a[itemprop="name"]').attr("title"),
-                posters: episode('div[class="image"] img').attr("src")
+                posters: `{"${episode('div[class="image"] img').attr("src")}"}`
             };
             returnArray.push(obj);
         }
@@ -135,5 +152,7 @@ class Imdb {
     async getEpisode(episodeImdbId) {}
 }
 
-let a = new Imdb();
-a.getAllEpisodesBySeason("tt0108778", 9);
+module.exports = Imdb;
+
+// let a = new Imdb();
+// a.getAllEpisodesBySeason("tt0108778", 9);

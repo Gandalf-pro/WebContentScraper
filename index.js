@@ -8,6 +8,8 @@ const EzTv = require("./torrents/Shows/EzTv");
 const yts = new YTS();
 const Omdb = require("./torrents/Omdb");
 const omdb = new Omdb();
+const Imdb = require("./Imdb");
+
 const { Client } = require("pg");
 const client = new Client({
     host: "localhost",
@@ -15,6 +17,8 @@ const client = new Client({
     password: "god",
     database: "Shovie"
 });
+
+
 
 // const client = new Client({
 //     host: "192.168.1.101",
@@ -24,6 +28,7 @@ const client = new Client({
 // });
 
 var ezTv = new EzTv({ client: client });
+const imdb = new Imdb({ client:client});
 
 async function setup() {
     await client.connect();
@@ -129,7 +134,8 @@ async function run() {
     //     console.log(error);
     // });
 
-    await ezz();
+    // await ezz();
+    await imdbShit();
 
     // await pushMoviePages(1).catch(error => {
     //     console.log(error);
@@ -184,6 +190,69 @@ function convertTime(time) {
     return actual;
 }
 
+
+async function imdbPushShowToDatabase(show) {
+    let query = 'INSERT INTO public."Shows"(imdb_id, imdb_rating, title, posters, latest_season, release_year, trailer, plot)';
+    query += 'VALUES($1, $2, $3, $4, $5, $6, $7, $8)ON CONFLICT DO NOTHING;';
+    let values = imdb.turnToArray(show); 
+    try {
+        let res = await client.query(query, values);
+        return res;
+    } catch (error) {
+        console.log(error);
+        console.log(show);
+        console.log(query);
+        throw error;
+    }
+}
+
+async function imdbPushSeasonToDatabase(seasonValues) {
+    let query = 'INSERT INTO public."Seasons"(imdb_id, season, episode_count)';
+    query += 'VALUES($1, $2, $3)ON CONFLICT DO NOTHING;';
+    try {
+        let res = await client.query(query, seasonValues);
+        return res;
+    } catch (error) {
+        console.log(error);
+        console.log(show);
+        console.log(query);
+        throw error;
+    }
+}
+
+async function imdbPushEpisodeToDatabase(episode) {
+    let query = 'INSERT INTO public."Episodes"(imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)';
+    query += 'VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)ON CONFLICT DO NOTHING;';
+    let values = imdb.turnToArray(episode);
+    try {
+        let res = await client.query(query, values);
+        return res;
+    } catch (error) {
+        console.log(error);
+        console.log(show);
+        console.log(query);
+        throw error;
+    }
+}
+
+async function imdbShit() {
+    let id = "tt0108778";
+    //get the show
+    let show = await imdb.getShow(id);
+    await imdbPushShowToDatabase(show);
+    //get every season
+    for (let i = 1; i <= show.latestSeason; i++) {
+        let episodes = await imdb.getAllEpisodesBySeason(id, i);
+        //push season
+        await imdbPushSeasonToDatabase([id, i, episodes.length]);
+        //push every episode
+        for (const episode of episodes) {
+            await imdbPushEpisodeToDatabase(episode);
+        }
+    }
+
+}
+
 async function ezz() {
     let resp = await ezTv.getTorrents();
     let ids = ezTv.getIdsFromTorrents(resp.torrents);
@@ -228,16 +297,13 @@ async function ezz() {
 }
 
 async function pushShowToDatabase(show) {
-    "".slice();
-    let id = show.imdbID.slice(2);
+    let id = show.imdbID;
     let Year = show.Year;
     let year = Year.split("–")[0];
     let title = client.escapeLiteral(show.Title);
     let plot = client.escapeLiteral(show.Plot);
     console.log(`id:${id}    year:${year}    Year:${Year}`);
-    let query = 'INSERT INTO public."Shows"(';
-    query +=
-        "imdb_id, imdb_rating, title, posters, latest_season, release_year, plot)";
+    let query = 'INSERT INTO public."Shows"(imdb_id, imdb_rating, title, posters, latest_season, release_year, plot)';
     query += `VALUES (${id}, ${show.imdbRating}, ${title}, '{"${show.Poster}"}', ${show.totalSeasons}, ${year}, ${plot})`;
     query += "ON CONFLICT DO NOTHING;";
     try {
@@ -252,9 +318,8 @@ async function pushShowToDatabase(show) {
 }
 
 async function pushSeasonToDatabase(season, show, seasonNum) {
-    let id = show.imdbID.slice(2);
-    let query = 'INSERT INTO public."Seasons"(';
-    query += "imdb_id, season";
+    let id = show.imdbID;
+    let query = 'INSERT INTO public."Seasons"(imdb_id, season';
     if (season.Response == "True") {
         query += ", episode_count)";
         query += `VALUES (${id}, ${seasonNum},${season.Episodes.length})`;
@@ -278,14 +343,12 @@ async function pushEpisodeToDatabase(episode, season, show) {
     if (episode.Response == "False") {
         throw "No response";
     }
-    let id = episode.seriesID.slice(2);
-    let episodeId = episode.imdbID.slice(2);
+    let id = episode.seriesID;
+    let episodeId = episode.imdbID;
     let date = convertTime(episode.Released);
     let plot = client.escapeLiteral(episode.Plot);
     let title = client.escapeLiteral(episode.Title);
-    let query = 'INSERT INTO public."Episodes"(';
-    query +=
-        "imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)";
+    let query = 'INSERT INTO public."Episodes"(imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)';
     query += `VALUES (${id}, ${episode.Episode}, ${episodeId}, ${plot}, ${episode.imdbRating}, ${episode.Season}, '${date}', ${title}, '{"${episode.Poster}"}')`;
     query += "ON CONFLICT DO NOTHING;";
     try {
