@@ -9,23 +9,14 @@ const yts = new YTS();
 const Omdb = require("./torrents/Omdb");
 const omdb = new Omdb();
 const Imdb = require("./Imdb");
+const config = require("./config.json");
 
 const { Client } = require("pg");
-const client = new Client({
-    host: "localhost",
-    user: "postgres",
-    password: "god",
-    database: "Shovie"
-});
+const client = new Client(config.localDatabase);
 
 
 
-// const client = new Client({
-//     host: "192.168.1.101",
-//     user: "gandalf",
-//     password: "god",
-//     database: "shovie"
-// });
+
 
 var ezTv = new EzTv({ client: client });
 const imdb = new Imdb({ client:client});
