@@ -7,10 +7,30 @@ class Imdb {
         this.client = params.client;
     }
 
-    //yyyy-mm-dd
+    validURL(str) {
+        var pattern = new RegExp(
+            "^(https?:\\/\\/)?" + // protocol
+            "((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|" + // domain name
+            "((\\d{1,3}\\.){3}\\d{1,3}))" + // OR ip (v4) address
+            "(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*" + // port and path
+            "(\\?[;&a-z\\d%_.~+=-]*)?" + // query string
+                "(\\#[-a-z\\d_]*)?$",
+            "i"
+        ); // fragment locator
+        return !!pattern.test(str);
+    }
+
+    /**
+     *
+     * @param {String} time
+     * @returns {String} yyyy-mm-dd
+     */
     convertTime(time) {
         time = time.replace(".", "");
         time = time.trim();
+        if (time.length < 7) {
+            return "1999-11-22";
+        }
         let Dates = [
             "Jan",
             "Feb",
@@ -27,34 +47,71 @@ class Imdb {
         ];
         let pieces = time.split(" ");
         //year
-        let year = pieces[2];
+        let year = pieces.pop();
+        let month;
+        let day;
+
         //month
-        let month =
-            Dates.findIndex((val, i, obj) => {
-                if (val == pieces[1]) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }) + 1;
+        if (pieces.length == 2) {
+            month =
+                Dates.findIndex((val, i, obj) => {
+                    if (val == pieces[1]) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }) + 1;
+            pieces.pop();
+        } else if (pieces.length == 1) {
+            month =
+                Dates.findIndex((val, i, obj) => {
+                    if (val == pieces[0]) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }) + 1;
+            //if month cant be found
+            if (month == 0) {
+                month = 1;
+                day = pieces.pop();
+            } else {
+                pieces.pop();
+            }
+            
+        } else if (pieces.length == 0) {
+            month = 1;
+        }
+
         //day
-        let day = pieces[0];
+        if (pieces.length == 1) {
+            day = pieces[0];
+        } else if (pieces.length == 0) {
+            if (!day) {
+                day = 1;
+            }
+        }
+
         let actual = `${year}-${month}-${day}`;
         return actual;
     }
 
     /**
-     * 
+     *
      * @param {*} input -its a ordered json
      */
     turnToArray(input) {
         let ret = [];
+        if (input.latestSeason == "Unknown") {
+            input.latestSeason = -1;
+        }
         for (const key in input) {
             if (input.hasOwnProperty(key)) {
                 const element = input[key];
                 ret.push(element);
             }
         }
+
         return ret;
     }
 
@@ -64,25 +121,45 @@ class Imdb {
      * returns return object
      */
     async getShow(imdbId) {
-        let url = this.URL + imdbId;
-        let reqPage = await rp(url);
-        const page = cheerio.load(reqPage);
-        let info = page('script[type="application/ld+json"]').html();
-        info = JSON.parse(info);
+        let info;
+        try {
+            let url = this.URL + imdbId;
+            let reqPage = await rp(url);
+            const page = cheerio.load(reqPage);
+            info = page('script[type="application/ld+json"]').html();
+            info = JSON.parse(info);
 
-        let seasonCount = page('div[class="seasons-and-year-nav"] a').html();
-        let releaseYear = info.datePublished.split("-")[0];
-        const ret = {
-            imdbId: imdbId,
-            imdbRating: info.aggregateRating.ratingValue,
-            title: info.name,
-            posters: `{"${info.image}"}`,
-            latestSeason: seasonCount,
-            releaseYear: releaseYear,
-            trailer: info.trailer,
-            plot: info.description
-        };
-        return ret;
+            let seasonCount = page(
+                'div[class="seasons-and-year-nav"] a'
+            ).html();
+            let releaseYear;
+            if (info.datePublished !== undefined) {
+                releaseYear = info.datePublished.split("-")[0];
+            } else {
+                releaseYear = 666;
+            }
+
+            let rating;
+            if (info.aggregateRating !== undefined) {
+                rating = info.aggregateRating.ratingValue;
+            } else {
+                rating = 666.0;
+            }
+            const ret = {
+                imdbId: imdbId,
+                imdbRating: rating,
+                title: info.name,
+                posters: `{"${info.image}"}`,
+                latestSeason: seasonCount,
+                releaseYear: releaseYear,
+                trailer: info.trailer,
+                plot: info.description
+            };
+            return ret;
+        } catch (error) {
+            console.log(info);
+            throw error;
+        }
     }
 
     /**
@@ -92,17 +169,21 @@ class Imdb {
      * @returns {String} return the number of episodes on a given season
      */
     async getSeason(imdbId, season) {
-        let url = this.URL + imdbId + `/episodes?season=${season}`;
-        let reqPage = await rp(url);
-        let page = cheerio.load(reqPage);
-        let episodeCount = page('meta[itemprop="numberofEpisodes"]').attr(
-            "content"
-        );
+        try {
+            let url = this.URL + imdbId + `/episodes?season=${season}`;
+            let reqPage = await rp(url);
+            let page = cheerio.load(reqPage);
+            let episodeCount = page('meta[itemprop="numberofEpisodes"]').attr(
+                "content"
+            );
 
-        let haha = page('div[class="list detail eplist"]').html();
-        console.log(haha);
+            let haha = page('div[class="list detail eplist"]').html();
+            console.log(haha);
 
-        return episodeCount;
+            return episodeCount;
+        } catch (error) {
+            throw error;
+        }
     }
 
     /**
@@ -112,41 +193,55 @@ class Imdb {
      * returns every episode on a season
      */
     async getAllEpisodesBySeason(imdbId, season) {
-        let url = this.URL + imdbId + `/episodes?season=${season}`;
-        let reqPage = await rp(url);
-        let page = cheerio.load(reqPage);
-        let episodes = page('div[class="list detail eplist"]')
-            .children()
-            .toArray();
-        let returnArray = [];
+        try {
+            let url = this.URL + imdbId + `/episodes?season=${season}`;
+            let reqPage = await rp(url);
+            let page = cheerio.load(reqPage);
+            let episodes = page('div[class="list detail eplist"]')
+                .children()
+                .toArray();
+            let returnArray = [];
 
-        for (const weird of episodes) {
-            let episode = cheerio.load(cheerio.html(weird));
-            let date = episode('div[class="airdate"]').text();
-            date = this.convertTime(date);
-            let obj = {
-                imdbId: imdbId,
-                episode: episode('meta[itemprop="episodeNumber"]').attr(
-                    "content"
-                ),
-                episodeImdbId: episode(
-                    'div[class="hover-over-image zero-z-index "]'
-                ).attr("data-const"),
-                summary: episode('div[itemprop="description"]')
-                    .text()
-                    .trim(),
-                rating: episode(
-                    'div[class="ipl-rating-widget"] span[class="ipl-rating-star__rating"]'
-                ).html(),
-                season: season,
-                dateReleased: date,
-                name: episode('a[itemprop="name"]').attr("title"),
-                posters: `{"${episode('div[class="image"] img').attr("src")}"}`
-            };
-            returnArray.push(obj);
+            for (const weird of episodes) {
+                let episode = cheerio.load(cheerio.html(weird));
+                let date = episode('div[class="airdate"]').text();
+                date = this.convertTime(date);
+                let obj = {
+                    imdbId: imdbId,
+                    episode: episode('meta[itemprop="episodeNumber"]').attr(
+                        "content"
+                    ),
+                    episodeImdbId: episode(
+                        'div[class="wtw-option-standalone"]'
+                    ).attr("data-tconst"),
+                    summary: episode('div[itemprop="description"]')
+                        .text()
+                        .trim(),
+                    rating: episode(
+                        'div[class="ipl-rating-widget"] span[class="ipl-rating-star__rating"]'
+                    ).html(),
+                    season: season,
+                    dateReleased: date,
+                    name: episode('a[itemprop="name"]').attr("title"),
+                    posters: `{"${episode('div[class="image"] img').attr(
+                        "src"
+                    )}"}`
+                };
+                //only push the episode if its valid
+                // if (this.validURL(episode('div[class="image"] img').attr("src"))) {
+                //     returnArray.push(obj);
+                // }
+                //only push the episode if its valid
+                if (episode('div[class="ipl-rating-widget"]').length == 1) {
+                    // console.log(`Episode:${obj.episode}  got it`);
+                    returnArray.push(obj);
+                }
+            }
+            // console.log(returnArray.length);
+            return returnArray;
+        } catch (error) {
+            throw error;
         }
-
-        return returnArray;
     }
 
     async getEpisode(episodeImdbId) {}
@@ -155,4 +250,4 @@ class Imdb {
 module.exports = Imdb;
 
 // let a = new Imdb();
-// a.getAllEpisodesBySeason("tt0108778", 9);
+// a.getAllEpisodesBySeason("tt0436992", 12);

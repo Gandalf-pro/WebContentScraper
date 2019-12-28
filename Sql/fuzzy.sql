@@ -7,3 +7,4 @@ where title % 'spiderman';
 select * from "Movies"
 --where title % 'Batman';
 where lower(title) like '%bat%'
+order by rating desc

@@ -10,16 +10,15 @@ const Omdb = require("./torrents/Omdb");
 const omdb = new Omdb();
 const Imdb = require("./Imdb");
 const config = require("./config.json");
+const fs = require("fs");
+const Shows = require("./Shows");
 
 const { Client } = require("pg");
 const client = new Client(config.localDatabase);
 
-
-
-
-
 var ezTv = new EzTv({ client: client });
-const imdb = new Imdb({ client:client});
+const imdb = new Imdb({ client: client });
+const shows = new Shows({ client: client, ezTv: ezTv, omdb: omdb, imdb: imdb });
 
 async function setup() {
     await client.connect();
@@ -121,12 +120,42 @@ async function syncMovies() {
 
 async function run() {
     await setup();
+    //sync movies and add to db
     // await syncMovies().catch(error => {
     //     console.log(error);
     // });
 
     // await ezz();
-    await imdbShit();
+    let content = JSON.parse(fs.readFileSync("shows2.json"));
+
+    let start = 10;
+    start = content.findIndex((value, i, obj) => {
+        if (value.imdbId == "tt7239256") {
+            return true;
+        }
+    });
+    if (start == -1) {
+        start = 10;
+    }
+    console.log(`Start:${start} End:${content.length}`);
+    let pushed = 0;
+    for (let i = start; i < content.length; i++) {
+        let mov = content[i];
+        console.log(`${pushed+start} Show:${mov.title}  id:${mov.imdbId}`);
+        try {
+            if (mov.imdbId == undefined) {
+                continue;
+            }
+            await shows.imdbPushShowEverythingWithId(mov.imdbId);
+            //delete the index from json file
+            content.splice(i, 1);
+            i--;
+            pushed++;
+        } catch (error) {
+            console.error(error);
+        }
+    }
+    // await fs.writeFile("Done.json", JSON.stringify(content));
 
     // await pushMoviePages(1).catch(error => {
     //     console.log(error);
@@ -146,103 +175,6 @@ async function haja() {
 //
 //--------------------TV   STUFFF------------------------//
 //
-
-//yyyy-mm-dd
-function convertTime(time) {
-    let Dates = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec"
-    ];
-    let pieces = time.split(" ");
-    //year
-    let year = pieces[2];
-    //month
-    let month =
-        Dates.findIndex((val, i, obj) => {
-            if (val == pieces[1]) {
-                return true;
-            } else {
-                return false;
-            }
-        }) + 1;
-    //day
-    let day = pieces[0];
-    let actual = `${year}-${month}-${day}`;
-    return actual;
-}
-
-
-async function imdbPushShowToDatabase(show) {
-    let query = 'INSERT INTO public."Shows"(imdb_id, imdb_rating, title, posters, latest_season, release_year, trailer, plot)';
-    query += 'VALUES($1, $2, $3, $4, $5, $6, $7, $8)ON CONFLICT DO NOTHING;';
-    let values = imdb.turnToArray(show); 
-    try {
-        let res = await client.query(query, values);
-        return res;
-    } catch (error) {
-        console.log(error);
-        console.log(show);
-        console.log(query);
-        throw error;
-    }
-}
-
-async function imdbPushSeasonToDatabase(seasonValues) {
-    let query = 'INSERT INTO public."Seasons"(imdb_id, season, episode_count)';
-    query += 'VALUES($1, $2, $3)ON CONFLICT DO NOTHING;';
-    try {
-        let res = await client.query(query, seasonValues);
-        return res;
-    } catch (error) {
-        console.log(error);
-        console.log(show);
-        console.log(query);
-        throw error;
-    }
-}
-
-async function imdbPushEpisodeToDatabase(episode) {
-    let query = 'INSERT INTO public."Episodes"(imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)';
-    query += 'VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)ON CONFLICT DO NOTHING;';
-    let values = imdb.turnToArray(episode);
-    try {
-        let res = await client.query(query, values);
-        return res;
-    } catch (error) {
-        console.log(error);
-        console.log(show);
-        console.log(query);
-        throw error;
-    }
-}
-
-async function imdbShit() {
-    let id = "tt0108778";
-    //get the show
-    let show = await imdb.getShow(id);
-    await imdbPushShowToDatabase(show);
-    //get every season
-    for (let i = 1; i <= show.latestSeason; i++) {
-        let episodes = await imdb.getAllEpisodesBySeason(id, i);
-        //push season
-        await imdbPushSeasonToDatabase([id, i, episodes.length]);
-        //push every episode
-        for (const episode of episodes) {
-            await imdbPushEpisodeToDatabase(episode);
-        }
-    }
-
-}
 
 async function ezz() {
     let resp = await ezTv.getTorrents();
@@ -294,7 +226,8 @@ async function pushShowToDatabase(show) {
     let title = client.escapeLiteral(show.Title);
     let plot = client.escapeLiteral(show.Plot);
     console.log(`id:${id}    year:${year}    Year:${Year}`);
-    let query = 'INSERT INTO public."Shows"(imdb_id, imdb_rating, title, posters, latest_season, release_year, plot)';
+    let query =
+        'INSERT INTO public."Shows"(imdb_id, imdb_rating, title, posters, latest_season, release_year, plot)';
     query += `VALUES (${id}, ${show.imdbRating}, ${title}, '{"${show.Poster}"}', ${show.totalSeasons}, ${year}, ${plot})`;
     query += "ON CONFLICT DO NOTHING;";
     try {
@@ -330,7 +263,6 @@ async function pushSeasonToDatabase(season, show, seasonNum) {
 }
 
 async function pushEpisodeToDatabase(episode, season, show) {
-    
     if (episode.Response == "False") {
         throw "No response";
     }
@@ -339,7 +271,8 @@ async function pushEpisodeToDatabase(episode, season, show) {
     let date = convertTime(episode.Released);
     let plot = client.escapeLiteral(episode.Plot);
     let title = client.escapeLiteral(episode.Title);
-    let query = 'INSERT INTO public."Episodes"(imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)';
+    let query =
+        'INSERT INTO public."Episodes"(imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)';
     query += `VALUES (${id}, ${episode.Episode}, ${episodeId}, ${plot}, ${episode.imdbRating}, ${episode.Season}, '${date}', ${title}, '{"${episode.Poster}"}')`;
     query += "ON CONFLICT DO NOTHING;";
     try {
@@ -353,4 +286,78 @@ async function pushEpisodeToDatabase(episode, season, show) {
     }
 }
 
-async function syncShows() {}
+async function syncShows() {
+    let resp = await ezTv.getTorrents();
+
+    for (let i = 1; true; i++) {
+        //request the page
+        let torrentsResp = await ezTv.getTorrents(i);
+
+        //get the imdb ids of every torrent
+        let ids = ezTv.getIdsFromTorrents(torrentsResp.torrents);
+
+        //checking if the shows exist in the database
+        let neids = await ezTv.checkIfIdsExist(ids);
+
+        //push the non existant shows to database
+        for (const id of neids) {
+            await shows.imdbPushShowEverythingWithId(id);
+        }
+
+        //check if seasons of shows exist in database
+        let neseasons = await ezTv.checkIfIdsExistSeason(torrentsResp.torrents);
+
+        //push non existant seasons to database
+        for (const torrent of neseasons) {
+            await shows.imdbPushSeasonEverythingToDatabase(torrent);
+        }
+
+        //check if episodes exist in database
+
+        //push non existant episodes to database
+
+        //push every torrent to database
+
+        //check the inserted count and stop if below 90
+    }
+
+    let ids = ezTv.getIdsFromTorrents(resp.torrents);
+    let neids = await ezTv.checkIfIdsExist(ids);
+    for (const id of neids) {
+        let realId = `tt${id}`;
+        realId = "tt0108778";
+        console.log(realId);
+
+        //request show data
+        let show = await omdb.getByIdOrTitle({
+            imdbId: realId,
+            type: "series"
+        });
+        //push show to database
+        let ga = await pushShowToDatabase(show);
+
+        //request every season
+        const sesCount = show.totalSeasons;
+        for (let i = 10; i <= sesCount; i++) {
+            let season = await omdb.getByIdOrTitle({
+                imdbId: realId,
+                type: "series",
+                season: i
+            });
+            //push season to database
+            await pushSeasonToDatabase(season, show, i);
+            //request every episode
+            for (const episode of season.Episodes) {
+                let reqEpisode = await omdb.getByIdOrTitle({
+                    imdbId: realId,
+                    type: "series",
+                    season: i,
+                    episode: episode.Episode
+                });
+                //push episode to database
+                await pushEpisodeToDatabase(reqEpisode);
+            }
+        }
+        return;
+    }
+}

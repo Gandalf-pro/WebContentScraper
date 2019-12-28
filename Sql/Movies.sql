@@ -30,7 +30,7 @@ CREATE TABLE public."Movies"
     title_long text COLLATE pg_catalog."default",
     slug text COLLATE pg_catalog."default",
     year integer,
-    rating integer,
+    rating FLOAT,
     runtime integer,
     genres TEXT COLLATE pg_catalog."default",
     summary text COLLATE pg_catalog."default",
