@@ -292,6 +292,9 @@ async function syncShows() {
         //request the page
         let torrentsResp = await ezTv.getTorrents(i);
 
+        
+        
+
         //get the imdb ids of every torrent
         let ids = ezTv.getIdsFromTorrents(torrentsResp.torrents);
 
