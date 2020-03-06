@@ -144,7 +144,42 @@ class Shows {
         }
     }
 
-    async imdbPushSeasonEverythingToDatabase(torrent) {}
+    async imdbPushSeasonEverythingToDatabase(torrent) {
+        try {
+            let episodes = await this.imdb.getAllEpisodesBySeason(
+                torrent.imdb_id,
+                torrent.season
+            );
+
+            let data = [torrent.imdb_id, torrent.season, episodes.length];
+
+            await this.imdbPushSeasonToDatabase(data);
+        } catch (error) {
+            
+            // console.log(error.error);            
+            
+            // console.log(`\n\nTorrent:${JSON.stringify(torrent)}`);
+            throw error;
+        }
+    }
+
+    async pushTorrentToDatabase(torrent) {
+        let query = 'INSERT INTO public."ShowTorrents"';
+        let sizeGB = torrent.size_bytes / 1000000000;
+        query +=
+            "(imdb_id, torrent_url, magnet_url, hash, name, title, quality, seeds, peers, size_gb, size_bytes, date_released_unix, season, episode)";
+        query += `VALUES(${torrent.imdb_id},${torrent.torrent_url},${torrent.magnet_url},${torrent.hash},${torrent.filename},${torrent.title},good,`;
+        query += `${torrent.seeds},${torrent.peers},${sizeGB},${torrent.size_bytes},${torrent.date_released_unix},${torrent.season},${torrent.episode})ON CONFLICT DO NOTHING;`;
+
+        try {
+            let res = await this.client.query(query);
+            return res;
+        } catch (error) {
+            console.log(error);
+            console.log(query);
+            throw error;
+        }
+    }
 }
 
 module.exports = Shows;

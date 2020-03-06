@@ -195,7 +195,11 @@ class Imdb {
     async getAllEpisodesBySeason(imdbId, season) {
         try {
             let url = this.URL + imdbId + `/episodes?season=${season}`;
-            let reqPage = await rp(url);
+            try {
+                var reqPage = await rp(url);    
+            } catch (error) {
+                throw error;
+            }            
             let page = cheerio.load(reqPage);
             let episodes = page('div[class="list detail eplist"]')
                 .children()
@@ -244,7 +248,20 @@ class Imdb {
         }
     }
 
-    async getEpisode(episodeImdbId) {}
+    async getEpisodeByEpisodeId(episodeImdbId) {
+
+    }
+
+    async getEpisode(imdbId, season, episodeNumber) {
+        let episodes = await this.getAllEpisodesBySeason(imdbId, season);
+        console.log(`show:${imdbId} season:${season} episode:${episodeNumber} type:${typeof episodeNumber} type episode:${typeof episodes[0].episode}`);
+        for (const episode of episodes) {            
+            if (episode.episode == episodeNumber) {
+                return episode;
+            }
+        }
+        throw "Episode cant be found";
+    }
 }
 
 module.exports = Imdb;
