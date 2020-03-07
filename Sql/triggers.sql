@@ -54,7 +54,7 @@ CREATE OR REPLACE FUNCTION add_episode_to_seasons()
   AS
   $BODY$
   BEGIN
-      UPDATE public."Seasons" SET episode_count = NEW.episode WHERE NEW.episode > episode_count AND NEW.imdb_id = imdb_id;
+      UPDATE public."Seasons" SET episode_count = NEW.episode WHERE NEW.episode > episode_count AND NEW.imdb_id = imdb_id AND NEW.season = season;
 
     RETURN NEW;
   END;
@@ -80,7 +80,7 @@ CREATE OR REPLACE FUNCTION add_torrent_to_episode()
   AS
   $BODY$
   BEGIN
-      UPDATE public."Episodes" SET torrents = array_append(torrents,NEW.id) WHERE imdb_id = NEW.imdb_id;
+      UPDATE public."Episodes" SET torrents = array_append(torrents,NEW.id) WHERE imdb_id = NEW.imdb_id AND NEW.season = season AND NEW.episode = episode;
   
     RETURN NEW;
   END;
@@ -106,7 +106,7 @@ CREATE OR REPLACE FUNCTION add_full_torrent_to_season()
   AS
   $BODY$
   BEGIN
-      UPDATE public."Seasons" SET torrents = array_append(torrents,NEW.id) WHERE imdb_id = NEW.imdb_id;
+      UPDATE public."Seasons" SET torrents = array_append(torrents,NEW.id) WHERE imdb_id = NEW.imdb_id AND NEW.season = season;
     
     RETURN NEW;
   END;

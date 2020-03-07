@@ -7,7 +7,7 @@ CREATE TABLE public."ShowTorrents"
     episode_imdb_id text,
     torrent_url	text,
     magnet_url  text,
-	hash		text,
+	hash		text UNIQUE,
     name        text,
     title       text,
 	quality		character varying(20),
@@ -15,8 +15,7 @@ CREATE TABLE public."ShowTorrents"
 	peers		integer,
     size_gb     FLOAT,
 	size_bytes	BIGINT,
-    date_uploaded timestamp without time zone,
-    date_uploaded_unix BIGINT,
+    date_released_unix BIGINT,
     season      INTEGER,
     episode     INTEGER
 

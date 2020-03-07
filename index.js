@@ -43,6 +43,33 @@ async function start() {
     }
 }
 
+function readLast() {
+    try {
+        let fileRead = fs.readFileSync("lastIndexes.json");
+        let indexesObject = JSON.parse(fileRead);
+        return indexesObject;
+    } catch (error) {
+        throw error;
+    }
+}
+
+function writeLast(movie, show) {
+    let initial = readLast();
+    let writeObject = {};
+    if (movie) {
+        writeObject["movie"] = movie;
+    } else {
+        writeObject["movie"] = initial.movie;
+    }
+    if (show) {
+        writeObject["show"] = show;
+    } else {
+        writeObject["show"] = initial.show;
+    }
+    fs.writeFileSync("lastIndexes.json", JSON.stringify(writeObject));    
+}
+
+
 async function pushMoviePages(page) {
     // console.log(page);
     let movies = await yts.getMovies(50, page);
@@ -100,9 +127,7 @@ async function pushAllMovies(sync) {
     for (let i = start; i <= finish; i++) {
         let response = await pushMoviePages(i);
         totalInsertion += response.insertedMovieCount;
-        let str = `Page:${i} Pages Left:${finish - i} Inserted:${
-            response.insertedMovieCount
-        } Total Inserted:${totalInsertion}`;
+        let str = `Page:${i} Pages Left:${finish - i} Inserted:${response.insertedMovieCount} Total Inserted:${totalInsertion}`;
         console.log(str);
         // console.log("Page:" + i + " Pages Left:" + (finish - i) + "Inserted:" + response.insertedMovieCount + " Total Inserted:" + totalInsertion);
         if (sync && response.insertedMovieCount < 40) {
@@ -149,11 +174,12 @@ async function fillShows() {
 
 async function run() {
     await setup();
+    let initialValues = readLast();
     //sync movies and add to db
     // await syncMovies().catch(error => {
     //     console.log(error);
     // });
-    await syncShows();
+    await syncShows(initialValues.show);
 
     // await pushMoviePages(1).catch(error => {
     //     console.log(error);
@@ -268,8 +294,7 @@ async function pushEpisodeToDatabase(episode, season, show) {
     let date = convertTime(episode.Released);
     let plot = client.escapeLiteral(episode.Plot);
     let title = client.escapeLiteral(episode.Title);
-    let query =
-        'INSERT INTO public."Episodes"(imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)';
+    let query = 'INSERT INTO public."Episodes"(imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)';
     query += `VALUES (${id}, ${episode.Episode}, ${episodeId}, ${plot}, ${episode.imdbRating}, ${episode.Season}, '${date}', ${title}, '{"${episode.Poster}"}')`;
     query += "ON CONFLICT DO NOTHING;";
     try {
@@ -283,17 +308,64 @@ async function pushEpisodeToDatabase(episode, season, show) {
     }
 }
 
-async function syncShows() {
-    // let resp = await ezTv.getTorrents();
+function setMapData(map, torrents, imdbId, season, episode) {
+    let deleted = 0;
+    for (let i = 0; i < torrents.length; i++) {
+        const torrent = torrents[i];
+        if (torrent.imdb_id == imdbId && torrent.season == season && torrent.episode == episode) {
+            if (map.get(torrent.id)) {
+                map.set(torrent.id, false);
+                deleted++;
+            }
+        }
+    }
+    return deleted;
+}
 
-    for (let i = 1; true; i++) {
+function setMapDataShow(map, torrents, imdbId) {
+    let deleted = 0;
+    for (let i = 0; i < torrents.length; i++) {
+        const torrent = torrents[i];
+        if (torrent.imdb_id == imdbId) {
+            if (map.get(torrent.id)) {
+                map.set(torrent.id, false);
+                deleted++;
+            }
+        }
+    }
+    return deleted;
+}
+
+function setMapDataSeason(map, torrents, imdbId, season) {
+    let deleted = 0;
+    for (let i = 0; i < torrents.length; i++) {
+        const torrent = torrents[i];
+        if (torrent.imdb_id == imdbId && torrent.season == season) {
+            if (map.get(torrent.id)) {
+                map.set(torrent.id, false);
+                deleted++;
+            }
+        }
+    }
+    return deleted;
+}
+
+async function syncShows(initialPage = 1) {
+    // let resp = await ezTv.getTorrents();
+    var torrentsCount;
+    
+    for (let i = initialPage; true; i++) {
         let totalInsertion = 0;
         let deleted = 0;
         //request the page
         let torrentsResp = await ezTv.getTorrents(i);
+        torrentsCount = torrentsResp.torrents_count;
+        let initialTorrentSize = torrentsResp.torrents.length;
 
-        
-        
+        let okToPush = new Map();
+        for (const torrent of torrentsResp.torrents) {
+            okToPush.set(torrent.id, true);
+        }
 
         //get the imdb ids of every torrent
         let ids = ezTv.getIdsFromTorrents(torrentsResp.torrents);
@@ -304,8 +376,13 @@ async function syncShows() {
         console.log("Checked Shows");
         //push the non existant shows to database
         for (const id of neids) {
-            let show = await imdb.getShow(id);
-            await shows.imdbPushShowToDatabase(show);
+            try {
+                let show = await imdb.getShow(id);
+                await shows.imdbPushShowToDatabase(show);
+            } catch (error) {
+                console.log("\x1b[41m%s\x1b[0m", `Got an error for Show removing from imdbId:${id}`);
+                deleted += setMapDataShow(okToPush, torrentsResp.torrents, id);
+            }
         }
         console.log("Pushed Shows");
 
@@ -316,18 +393,17 @@ async function syncShows() {
         //push non existant seasons to database
         for (let i = 0; i < neseasons.length; i++) {
             const torrent = neseasons[i];
+            //skip if cant push
+            if (!okToPush.get(torrent.id)) {
+                continue;
+            }
             try {
                 await shows.imdbPushSeasonEverythingToDatabase(torrent);
-                console.log("\x1b[32m%s\x1b[0m", `\nGot no error lull show:${torrent.title} imdbId:${torrent.imdb_id}`);
+                console.log("\x1b[42m%s\x1b[0m", `\nGot no error lull show:${torrent.title} imdbId:${torrent.imdb_id}`);
             } catch (error) {
-                console.log(
-                    "\x1b[41m%s\x1b[0m",
-                    `Got an error for show removing from list:${torrent.title} imdbId:${torrent.imdb_id}`
-                );
+                console.log("\x1b[41m%s\x1b[0m", `Got an error for show removing from list:${torrent.title} imdbId:${torrent.imdb_id}`);
                 // console.log("\n\n" + error);
-                deleted++;
-                torrentsResp.torrents.splice(i, 1);
-                i--;
+                deleted += setMapDataSeason(okToPush, torrentsResp.torrents, torrent.imdb_id, torrent.season);
             }
         }
         console.log("Pushed Seasons");
@@ -338,6 +414,10 @@ async function syncShows() {
         //push non existant episodes to database
         for (let i = 0; i < neepisodes.length; i++) {
             const torrent = neepisodes[i];
+            //skip if cant push
+            if (!okToPush.get(torrent.id)) {
+                continue;
+            }
             try {
                 let episode = await imdb.getEpisode(torrent.imdb_id, torrent.season, torrent.episode);
                 await shows.imdbPushEpisodeToDatabase(episode);
@@ -346,9 +426,7 @@ async function syncShows() {
                     "\x1b[41m%s\x1b[0m",
                     `Got an error for episode removing from list:${torrent.title} imdbId:${torrent.imdb_id} season:${torrent.season} episode:${torrent.episode}`
                 );
-                deleted++;
-                torrentsResp.torrents.splice(torrentsResp.torrents.indexOf(torrent), 1);
-                i--;
+                deleted += setMapData(okToPush, torrentsResp.torrents, torrent.imdb_id, torrent.season, torrent.episode);
             }
         }
 
@@ -356,18 +434,28 @@ async function syncShows() {
 
         //push every torrent to database
         for (const torrent of torrentsResp.torrents) {
-            let res = await shows.pushTorrentToDatabase(torrent);
-            //if row count is 1 then its inserted
-            if (res.rowCount == 1) {
-                totalInsertion++;
+            let res;
+            if (okToPush.get(torrent.id)) {
+                res = await shows.pushTorrentToDatabase(torrent);
+                //if row count is 1 then its inserted
+                if (res.rowCount >= 1) {
+                    totalInsertion++;
+                }
             }
         }
-
+        console.log("\x1b[36m%s\x1b[0m", `Done Page:${i} pushed:${totalInsertion} deleted:${deleted} initial:${initialTorrentSize}`);
+        writeLast(false, i + 1);
         //check the inserted count and stop if below 90 - deleted
-        if (totalInsertion < 90 - deleted) {
+        if (totalInsertion < initialTorrentSize - deleted - 10) {
+            let dataBaseTorrentCount = await shows.getTotalTorrentAmount();
+            if (dataBaseTorrentCount < torrentsCount * 0.4) {
+                console.log(`Database too small continuing database count:${dataBaseTorrentCount} torrents count:${torrentsCount}`);
+                continue;
+            }            
             break;
         }
     }
+    writeLast(false, 1);
     return;
 
     let ids = ezTv.getIdsFromTorrents(resp.torrents);

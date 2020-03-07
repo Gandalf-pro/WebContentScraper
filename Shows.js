@@ -21,20 +21,7 @@ class Shows {
      * @returns {String} yyyy-mm-dd
      */
     convertTime(time) {
-        let Dates = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec"
-        ];
+        let Dates = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         let pieces = time.split(" ");
         //year
         let year = pieces[2];
@@ -69,11 +56,16 @@ class Shows {
         let res = await this.client.query(query);
     }
 
+    async getTotalTorrentAmount() {
+        let query = 'select count(*) from "ShowTorrents"';
+        let res = await this.client.query(query);
+        return res.rows[0].count;
+    }
+
     async imdbPushShowToDatabase(show) {
         let query =
             'INSERT INTO public."Shows"(imdb_id, imdb_rating, title, posters, latest_season, release_year, trailer, plot)';
-        query +=
-            "VALUES($1, $2, $3, $4, $5, $6, $7, $8)ON CONFLICT DO NOTHING;";
+        query += "VALUES($1, $2, $3, $4, $5, $6, $7, $8)ON CONFLICT DO NOTHING;";
         let values = this.imdb.turnToArray(show);
         try {
             let res = await this.client.query(query, values);
@@ -88,8 +80,7 @@ class Shows {
     }
 
     async imdbPushSeasonToDatabase(seasonValues) {
-        let query =
-            'INSERT INTO public."Seasons"(imdb_id, season, episode_count)';
+        let query = 'INSERT INTO public."Seasons"(imdb_id, season, episode_count)';
         query += "VALUES($1, $2, $3)ON CONFLICT DO NOTHING;";
         try {
             let res = await this.client.query(query, seasonValues);
@@ -105,8 +96,7 @@ class Shows {
     async imdbPushEpisodeToDatabase(episode) {
         let query =
             'INSERT INTO public."Episodes"(imdb_id, episode, episode_imdb_id, summary, rating, season, date_released, name, posters)';
-        query +=
-            "VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)ON CONFLICT DO NOTHING;";
+        query += "VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)ON CONFLICT DO NOTHING;";
         let values = this.imdb.turnToArray(episode);
         try {
             let res = await this.client.query(query, values);
@@ -146,18 +136,14 @@ class Shows {
 
     async imdbPushSeasonEverythingToDatabase(torrent) {
         try {
-            let episodes = await this.imdb.getAllEpisodesBySeason(
-                torrent.imdb_id,
-                torrent.season
-            );
+            let episodes = await this.imdb.getAllEpisodesBySeason(torrent.imdb_id, torrent.season);
 
             let data = [torrent.imdb_id, torrent.season, episodes.length];
 
             await this.imdbPushSeasonToDatabase(data);
         } catch (error) {
-            
-            // console.log(error.error);            
-            
+            // console.log(error.error);
+
             // console.log(`\n\nTorrent:${JSON.stringify(torrent)}`);
             throw error;
         }
@@ -165,14 +151,28 @@ class Shows {
 
     async pushTorrentToDatabase(torrent) {
         let query = 'INSERT INTO public."ShowTorrents"';
+        let vals = [];
         let sizeGB = torrent.size_bytes / 1000000000;
         query +=
             "(imdb_id, torrent_url, magnet_url, hash, name, title, quality, seeds, peers, size_gb, size_bytes, date_released_unix, season, episode)";
-        query += `VALUES(${torrent.imdb_id},${torrent.torrent_url},${torrent.magnet_url},${torrent.hash},${torrent.filename},${torrent.title},good,`;
-        query += `${torrent.seeds},${torrent.peers},${sizeGB},${torrent.size_bytes},${torrent.date_released_unix},${torrent.season},${torrent.episode})ON CONFLICT DO NOTHING;`;
+        query += `VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)ON CONFLICT DO NOTHING;`;
+        vals.push(torrent.imdb_id);
+        vals.push(torrent.torrent_url);
+        vals.push(torrent.magnet_url);
+        vals.push(torrent.hash);
+        vals.push(torrent.filename);
+        vals.push(torrent.title);
+        vals.push("good");
+        vals.push(torrent.seeds);
+        vals.push(torrent.peers);
+        vals.push(sizeGB);
+        vals.push(torrent.size_bytes);
+        vals.push(torrent.date_released_unix);
+        vals.push(torrent.season);
+        vals.push(torrent.episode);
 
         try {
-            let res = await this.client.query(query);
+            let res = await this.client.query(query,vals);
             return res;
         } catch (error) {
             console.log(error);
