@@ -1,6 +1,6 @@
 // const rp = require('request-promise');
 // const $ = require('cheerio');
-const mongoose = require("mongoose");
+// const mongoose = require("mongoose");
 
 // mongoose.connect('localhost');
 const YTS = require("./torrents/Movies/Yts");
@@ -12,6 +12,7 @@ const Imdb = require("./Imdb");
 const config = require("./config.json");
 const fs = require("fs");
 const Shows = require("./Shows");
+const Movies = require("./Movies");
 
 const { Client } = require("pg");
 const client = new Client(config.localDatabase);
@@ -19,28 +20,11 @@ const client = new Client(config.localDatabase);
 var ezTv = new EzTv({ client: client });
 const imdb = new Imdb({ client: client });
 const shows = new Shows({ client: client, ezTv: ezTv, omdb: omdb, imdb: imdb });
+const movies = new Movies(yts, client);
 
 async function setup() {
     await client.connect();
-    console.log("connected");
-}
-
-async function start() {
-    let movies = await yts.getMovies(50, 1);
-    movies = movies.movies;
-    for (const movie of movies) {
-        //Insert the movie data
-        let query = yts.getInsertString(movie);
-        let res = await client.query(query);
-        console.log(res);
-
-        //Insert the torrent data
-        for (const x of movie.torrents) {
-            query = yts.getTorrentString(x, movie.imdb_code.replace("tt", ""));
-            res = await client.query(query);
-            console.log(res);
-        }
-    }
+    console.log("Connected");
 }
 
 function readLast() {
@@ -70,75 +54,7 @@ function writeLast(movie, show) {
 }
 
 
-async function pushMoviePages(page) {
-    // console.log(page);
-    let movies = await yts.getMovies(50, page);
-    let movieCount = movies.movie_count;
-    movies = movies.movies;
-    let insertedMovieCount = 0;
-    for (const movie of movies) {
-        //Insert the movie data
-        let query = yts.getInsertString(movie);
-        let res;
-        try {
-            res = await client.query(query);
-        } catch (error) {
-            console.log(query);
-            console.log("\n\n" + error);
-            process.exit(-2);
-        }
-        // console.log(res);
 
-        //if row count is 1 then its inserted
-        if (res.rowCount == 1) {
-            //if its inserted the movie
-            insertedMovieCount++;
-            //Insert the torrent data
-            if (movie.torrents) {
-                for (const x of movie.torrents) {
-                    query = yts.getTorrentString(x, movie.imdb_code.replace("tt", ""));
-                    res = await client.query(query);
-                    // console.log(res);
-                }
-            }
-        }
-    }
-    return {
-        movieCount: movieCount,
-        insertedMovieCount: insertedMovieCount
-    };
-}
-
-async function pushAllMovies(sync) {
-    let start = 1;
-    let finish;
-    let movieCount = await yts.getMovieCount();
-    let pageTotal = Math.ceil(movieCount / 50);
-    let totalInsertion = 0;
-    console.log("Page Total:" + pageTotal + " Movie Count:" + movieCount);
-    if (typeof finish === "number") {
-        if (finish > pageTotal) {
-            finish = pageTotal;
-        }
-    } else {
-        finish = pageTotal;
-    }
-    console.log("finish page:" + finish);
-    for (let i = start; i <= finish; i++) {
-        let response = await pushMoviePages(i);
-        totalInsertion += response.insertedMovieCount;
-        let str = `Page:${i} Pages Left:${finish - i} Inserted:${response.insertedMovieCount} Total Inserted:${totalInsertion}`;
-        console.log(str);
-        // console.log("Page:" + i + " Pages Left:" + (finish - i) + "Inserted:" + response.insertedMovieCount + " Total Inserted:" + totalInsertion);
-        if (sync && response.insertedMovieCount < 40) {
-            return;
-        }
-    }
-}
-
-async function syncMovies() {
-    await pushAllMovies(true);
-}
 
 async function fillShows() {
     let content = JSON.parse(fs.readFileSync("shows2.json"));
@@ -175,10 +91,11 @@ async function fillShows() {
 async function run() {
     await setup();
     let initialValues = readLast();
-    //sync movies and add to db
-    // await syncMovies().catch(error => {
-    //     console.log(error);
-    // });
+    
+    await movies.syncMovies(initialValues.movie).catch(error => {
+        console.log(error);
+    });
+    
     await syncShows(initialValues.show);
 
     // await pushMoviePages(1).catch(error => {
