@@ -6,6 +6,7 @@ function readLast() {
         let indexesObject = JSON.parse(fileRead);
         return indexesObject;
     } catch (error) {
+        console.log(error);
         throw error;
     }
 }
